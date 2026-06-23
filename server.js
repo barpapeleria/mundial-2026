@@ -285,6 +285,7 @@ function buildProjectedBracket(standingsData) {
   });
 }
 
+const GOAL_EVENT_STATUSES = new Set(['IN_PLAY', 'LIVE']);
 const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'LIVE']);
 
 function buildSnapshot(matchesData, standingsData, scorersData) {
@@ -395,6 +396,11 @@ function winnerName(m, hg, ag, pen) {
 /* El free tier NO manda el minuto. Lo estimamos por la hora de inicio
    (utcDate) y el marcador del entretiempo para saber la mitad. */
 function liveMinute(m) {
+  // Si la API marca PAUSED, para el usuario final es mejor mostrar entretiempo.
+  // Evitamos estimar 53', 55', etc. mientras el partido está detenido.
+  if (m.status === 'PAUSED') {
+    return { min: 45, label: 'Entretiempo' };
+  }    
   if (m.minute != null && m.minute !== '') return { min: +m.minute, label: m.minute + "'" };
   const ko = Date.parse(m.utcDate);
   if (!ko) return { min: null, label: 'EN VIVO' };
@@ -422,7 +428,7 @@ function detectGoals(matches) {
 
     // Si el partido no está realmente en vivo, solo sincronizamos el marcador.
     // No mostramos toast de gol para partidos finalizados, programados o corregidos tarde por la API.
-    if (!LIVE_STATUSES.has(m.status)) {
+    if (!GOAL_EVENT_STATUSES.has(m.status)) {
       lastScores[key] = cur;
       continue;
     }
