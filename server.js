@@ -285,6 +285,8 @@ function buildProjectedBracket(standingsData) {
   });
 }
 
+const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'LIVE']);
+
 function buildSnapshot(matchesData, standingsData, scorersData) {
   const matches = (matchesData && matchesData.matches) || [];
 
@@ -313,8 +315,8 @@ function buildSnapshot(matchesData, standingsData, scorersData) {
   })).filter(s => s.goals > 0);
 
   /* ---- partidos en vivo ---- */
-  const liveStatuses = new Set(['IN_PLAY', 'PAUSED', 'LIVE']);
-  const live = matches.filter(m => liveStatuses.has(m.status)).map(m => {
+  const liveStatuses = LIVE_STATUSES;
+  const live = matches.filter(m => LIVE_STATUSES.has(m.status)).map(m => {
     const lm = liveMinute(m);
     return {
       home: tref(m.homeTeam), away: tref(m.awayTeam),
@@ -417,6 +419,14 @@ function detectGoals(matches) {
     const key = String(m.id);
     const prev = lastScores[key];
     const cur = `${hg}-${ag}`;
+
+    // Si el partido no está realmente en vivo, solo sincronizamos el marcador.
+    // No mostramos toast de gol para partidos finalizados, programados o corregidos tarde por la API.
+    if (!LIVE_STATUSES.has(m.status)) {
+      lastScores[key] = cur;
+      continue;
+    }
+
     if (prev !== undefined && prev !== cur) {
       const [ph, pa] = prev.split('-').map(Number);
       if (hg > ph) emitGoal(m.homeTeam, m, hg, ag);
@@ -427,6 +437,8 @@ function detectGoals(matches) {
 }
 function emitGoal(team, m, hg, ag) {
   broadcast('goal', {
+    matchId: m.id,
+    status: m.status,	  
     team: tref(team),
     home: tref(m.homeTeam), away: tref(m.awayTeam),
     hg, ag,
