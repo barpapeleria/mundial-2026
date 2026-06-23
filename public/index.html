@@ -62,7 +62,6 @@
   .speed{display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.55); border:1px solid rgba(16,47,53,0.12); border-radius:999px; padding:0.4rem 0.85rem;}
   .speed input{accent-color:var(--green);}
   .sim-only{display:none;} body.mode-sim .sim-only{display:inline-flex;}
-  .demo-only{display:none;} body.mode-idle .demo-only{display:inline-flex;}
 
   .live-bar{background:linear-gradient(160deg, rgba(255,255,255,0.72), rgba(221,239,240,0.42)); border:1px solid var(--card-bd); border-radius:2rem; padding:1rem 1.25rem;
     box-shadow:0 24px 70px rgba(12,45,48,0.12); backdrop-filter:blur(18px); margin-bottom:1.25rem; transition:all 220ms var(--ease);}
@@ -276,7 +275,6 @@
       </div>
     </div>
     <div class="controls">
-      <button class="btn btn-secondary demo-only" id="btnDemo">▶ Ver demo simulada</button>
       <div class="speed sim-only">
         <span class="label">Velocidad</span>
         <input id="speed" type="range" min="1" max="10" value="5" />
@@ -488,7 +486,7 @@ function setSource(src){
   document.body.classList.remove('mode-sim','mode-live','mode-conn','mode-idle');
   if(src==='live'){ b.textContent='● Datos reales en vivo'; b.className='src-pill src-live'; document.body.classList.add('mode-live'); }
   else if(src==='sim'){ b.textContent='Demo simulada'; b.className='src-pill src-sim'; document.body.classList.add('mode-sim'); }
-  else if(src==='idle'){ b.textContent='Sin datos en vivo'; b.className='src-pill src-idle'; document.body.classList.add('mode-idle'); }
+  else if(src==='idle'){ b.textContent='Actualizando datos'; b.className='src-pill src-idle'; document.body.classList.add('mode-idle'); }
   else { b.textContent='Conectando…'; b.className='src-pill src-conn'; document.body.classList.add('mode-conn'); }
 }
 function renderActive(){
@@ -506,9 +504,7 @@ function renderLive(){
     else { tag.textContent = 'Sin partidos en vivo'; tag.classList.add('off'); }
   }
   if(!live.length){
-    const msg = (current.source==='idle')
-      ? 'No hay datos en vivo. Conectá la API para ver resultados y goles reales — o probá la <strong>demo simulada</strong> con el botón de arriba.'
-      : 'No hay partidos en vivo en este momento…';
+	const msg = 'No hay partidos en vivo en este momento. Los resultados, grupos y llaves se actualizan automáticamente cuando hay datos disponibles.';
     el.innerHTML = `<div class="empty-live">${msg}</div>`;
     return;
   }
