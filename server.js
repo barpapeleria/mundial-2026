@@ -55,6 +55,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 let clients = [];
 let lastSnapshot = null;
 let lastScores = {};      // matchId -> "home-away"
+let matchClockState = {}; // matchId -> { lastStatus, secondHalfStartedAt }
 
 /* ---------- SSE ---------- */
 function send(res, event, data) {
@@ -393,29 +394,93 @@ function winnerName(m, hg, ag, pen) {
   return null;
 }
 
-/* El free tier NO manda el minuto. Lo estimamos por la hora de inicio
-   (utcDate) y el marcador del entretiempo para saber la mitad. */
+/* El free tier de football-data no siempre manda el minuto real.
+   - Si la API marca PAUSED, mostramos "Entretiempo".
+   - Si alguna vez manda m.minute, usamos ese valor real.
+   - Si detectamos el paso de PAUSED -> IN_PLAY/LIVE, guardamos cuándo arrancó el 2º tiempo
+     y desde ahí estimamos el minuto.
+   - Si el servidor arrancó tarde y no vio ese cambio, mostramos "2º tiempo"
+     para no inventar un minuto desfasado. */
 function liveMinute(m) {
-  // Si la API marca PAUSED, para el usuario final es mejor mostrar entretiempo.
-  // Evitamos estimar 53', 55', etc. mientras el partido está detenido.
-  if (m.status === 'PAUSED') {
+  const key = String(m.id);
+  const prev = matchClockState[key] || {};
+  const status = m.status;
+
+  const hasHalfTimeScore =
+    m.score &&
+    m.score.halfTime &&
+    m.score.halfTime.home != null &&
+    m.score.halfTime.away != null;
+
+  // Si está en entretiempo, lo mostramos claro y no seguimos contando.
+  if (status === 'PAUSED') {
+    matchClockState[key] = {
+      ...prev,
+      lastStatus: status
+    };
+
     return { min: 45, label: 'Entretiempo' };
-  }    
-  if (m.minute != null && m.minute !== '') return { min: +m.minute, label: m.minute + "'" };
+  }
+
+  // Si la API alguna vez mandara minuto real, usamos eso.
+  if (m.minute != null && m.minute !== '') {
+    matchClockState[key] = {
+      ...prev,
+      lastStatus: status
+    };
+
+    return { min: +m.minute, label: m.minute + "'" };
+  }
+
+  // Si detectamos que volvió de PAUSED a IN_PLAY/LIVE y ya hay score de entretiempo,
+  // guardamos el arranque real del segundo tiempo.
+  if (
+    hasHalfTimeScore &&
+    (status === 'IN_PLAY' || status === 'LIVE') &&
+    prev.lastStatus === 'PAUSED' &&
+    !prev.secondHalfStartedAt
+  ) {
+    matchClockState[key] = {
+      ...prev,
+      lastStatus: status,
+      secondHalfStartedAt: Date.now()
+    };
+  } else {
+    matchClockState[key] = {
+      ...prev,
+      lastStatus: status
+    };
+  }
+
+  const state = matchClockState[key];
+
+  // Segundo tiempo: si sabemos cuándo arrancó, calculamos desde ahí.
+  if (hasHalfTimeScore && state.secondHalfStartedAt) {
+    const elapsedSecondHalf = Math.floor((Date.now() - state.secondHalfStartedAt) / 60000);
+    const min = Math.min(90, 45 + Math.max(1, elapsedSecondHalf));
+
+    return { min, label: '~' + min + "'" };
+  }
+
+  // Si ya está en segundo tiempo pero el server arrancó tarde y no vio el cambio PAUSED -> IN_PLAY,
+  // mejor no inventar un minuto malo.
+  if (hasHalfTimeScore) {
+    return { min: null, label: '2º tiempo' };
+  }
+
+  // Primer tiempo: estimamos por hora de inicio.
   const ko = Date.parse(m.utcDate);
   if (!ko) return { min: null, label: 'EN VIVO' };
+
   const elapsed = Math.floor((Date.now() - ko) / 60000);
   if (elapsed < 0) return { min: null, label: 'EN VIVO' };
-  const secondHalf = m.score && m.score.halfTime && m.score.halfTime.home != null;
-  let min;
-  if (!secondHalf) {
-    if (elapsed <= 45) min = Math.max(1, elapsed);
-    else return { min: 45, label: 'Entretiempo' };
-  } else {
-    min = 45 + Math.max(1, elapsed - 60);
+
+  if (elapsed <= 45) {
+    const min = Math.max(1, elapsed);
+    return { min, label: '~' + min + "'" };
   }
-  if (min > 90) return { min: 90, label: "90+'" };
-  return { min, label: '~' + min + "'" };
+
+  return { min: 45, label: 'Entretiempo' };
 }
 
 /* ---- deteccion de goles entre sondeos ---- */
