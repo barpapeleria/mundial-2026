@@ -859,7 +859,10 @@ function updateToggle(){ const b=document.getElementById('btnToggle'); if(b) b.t
 document.getElementById('btnToggle').addEventListener('click',()=>{ simRunning=!simRunning; updateToggle(); });
 document.getElementById('btnRestart').addEventListener('click',()=>{ if(simStarted) simNew(); });
 document.getElementById('speed').addEventListener('input',e=>{ simTickMs=Math.round(280-(+e.target.value)*26); simLoop(); });
-document.getElementById('btnDemo').addEventListener('click',()=>{ startSim('demo activada por el usuario'); });
+const btnDemo = document.getElementById('btnDemo');
+if (btnDemo) {
+  btnDemo.addEventListener('click',()=>{ startSim('demo activada por el usuario'); });
+}
 document.getElementById('btnStopDemo').addEventListener('click',()=>{ stopSim(); goIdle(); });
 
 /* arrancar */
