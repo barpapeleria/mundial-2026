@@ -547,10 +547,10 @@ function renderGroups(){
 }
 
 function renderScorers(){
-  const arr = (current.scorers||[]).slice(0,25);
+  const arr = (current.scorers||[]).slice(0,100);
   const max = arr.length? arr[0].goals : 1;
   const total = arr.reduce((a,b)=>a+(b.goals||0),0);
-  document.getElementById('totalGoals').textContent = total+' goles';
+  document.getElementById('totalGoals').textContent = arr.length + ' goleadores';
   const list = document.getElementById('scorersList');
   if(!arr.length){ list.innerHTML = `<div class="empty-live">Todavía no se marcaron goles…</div>`; return; }
   list.innerHTML = arr.map((s,i)=>`

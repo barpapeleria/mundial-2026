@@ -493,7 +493,7 @@ async function poll() {
   if (pollCount % 3 === 0 && rate.remaining >= 3) {
     const sd = await apiGetSafe(`competitions/${COMP}/standings`);
     if (sd) cache.standings = sd;
-    const scd = await apiGetSafe(`competitions/${COMP}/scorers?limit=25`);
+    const scd = await apiGetSafe(`competitions/${COMP}/scorers?limit=100`);
     if (scd) cache.scorers = scd;
   }
   pollCount++;
