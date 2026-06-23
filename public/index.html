@@ -660,11 +660,12 @@ document.querySelectorAll('.tab').forEach(tab=>{
    CONEXIÓN: intenta SSE (feed real). Si falla, simulación.
    ============================================================ */
 let gotLive = false, simStarted = false, es = null;
+const API_BASE_URL = 'https://bar-papeleria-mundial-backend.onrender.com';
 setSource('conn');
 
 function connect(){
   try{
-    es = new EventSource('/events');
+    es = new EventSource(`${API_BASE_URL}/events`);
   }catch(e){ goIdle(); return; }
 
   es.addEventListener('hello', e=>{
