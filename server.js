@@ -15,11 +15,12 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 
-const PORT    = process.env.PORT || 3000;
-const TOKEN   = (process.env.FOOTBALL_DATA_TOKEN || '').trim();
-const COMP    = (process.env.COMPETITION || 'WC').trim();
-const POLL_MS = Math.max(15000, +(process.env.POLL_MS || 20000));
-const API     = 'https://api.football-data.org/v4';
+const PORT               = process.env.PORT || 3000;
+const TOKEN              = (process.env.FOOTBALL_DATA_TOKEN || '').trim();
+const COMP               = (process.env.COMPETITION || 'WC').trim();
+const POLL_MS            = Math.max(15000, +(process.env.POLL_MS || 20000));
+const API                = 'https://api.football-data.org/v4';
+const CLOCK_ADMIN_SECRET = (process.env.CLOCK_ADMIN_SECRET || '').trim();
 
 const app = express();
 
@@ -321,6 +322,7 @@ function buildSnapshot(matchesData, standingsData, scorersData) {
   const live = matches.filter(m => LIVE_STATUSES.has(m.status)).map(m => {
     const lm = liveMinute(m);
     return {
+      matchId: m.id,
       home: tref(m.homeTeam), away: tref(m.awayTeam),
       hg: scoreOf(m, 'home'), ag: scoreOf(m, 'away'),
       minute: lm.min, minLabel: lm.label,
@@ -582,6 +584,73 @@ async function attachPhotos(scorers) {
 
 let pollCount = 0;
 const cache = { matches: null, standings: null, scorers: null };
+
+app.get('/admin/clock', async (req, res) => {
+  const secret = String(req.query.secret || '').trim();
+
+  if (!CLOCK_ADMIN_SECRET || secret !== CLOCK_ADMIN_SECRET) {
+    return res.status(401).json({
+      ok: false,
+      message: 'No autorizado'
+    });
+  }
+
+  const minute = Number(req.query.minute);
+  let matchId = String(req.query.matchId || '').trim();
+
+  if (!Number.isFinite(minute) || minute < 46 || minute > 120) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Parametro minute invalido. Usar un valor entre 46 y 120.'
+    });
+  }
+
+  const liveMatches = ((cache.matches && cache.matches.matches) || [])
+    .filter(m => LIVE_STATUSES.has(m.status));
+
+  // Si no pasás matchId y hay un solo partido en vivo, lo toma automáticamente.
+  if (!matchId) {
+    if (liveMatches.length === 1) {
+      matchId = String(liveMatches[0].id);
+    } else {
+      return res.status(400).json({
+        ok: false,
+        message: 'Hay cero o mas de un partido en vivo. Envia matchId.',
+        liveMatches: liveMatches.map(m => ({
+          matchId: m.id,
+          home: tref(m.homeTeam),
+          away: tref(m.awayTeam),
+          status: m.status
+        }))
+      });
+    }
+  }
+
+  matchClockState[matchId] = {
+    lastStatus: 'IN_PLAY',
+    secondHalfStartedAt: Date.now() - ((minute - 45) * 60000),
+    manual: true,
+    manualMinute: minute,
+    updatedAt: Date.now()
+  };
+
+  // Refresca el snapshot inmediatamente usando el cache actual, sin esperar al próximo poll.
+  if (cache.matches || cache.standings || cache.scorers) {
+    const snap = buildSnapshot(cache.matches, cache.standings, cache.scorers);
+    await attachPhotos(snap.scorers);
+    lastSnapshot = snap;
+    broadcast('snapshot', snap);
+  }
+
+  return res.json({
+    ok: true,
+    matchId,
+    minute,
+    label: minute > 90 ? `90+${minute - 90}'` : `~${minute}'`,
+    message: 'Reloj ajustado manualmente'
+  });
+});
+
 async function poll() {
   if (!TOKEN) return;
   // Partidos: en cada sondeo (es lo que cambia rapido en vivo).
