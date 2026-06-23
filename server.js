@@ -22,6 +22,33 @@ const POLL_MS = Math.max(15000, +(process.env.POLL_MS || 20000));
 const API     = 'https://api.football-data.org/v4';
 
 const app = express();
+
+const ALLOWED_ORIGINS = new Set([
+  'https://bar-papeleria-mundial-2026.netlify.app',
+  'https://bar-papeleria.netlify.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* ---------- estado del servidor ---------- */
@@ -39,9 +66,16 @@ function broadcast(event, data) {
 }
 
 app.get('/events', (req, res) => {
+  const origin = req.headers.origin;
+
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+
   res.set({
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no',
   });
