@@ -289,7 +289,7 @@
     <div class="live-head">
       <span class="live-tag off" id="liveTag">Actualizando</span>
       <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
-        <span id="sourceBadge" class="src-pill src-conn">Conectando…</span>
+        <span id="sourceBadge" class="src-pill src-conn">Cargando datos…</span>
         <span id="stageInfo" class="stage-banner">Fase de grupos</span>
       </div>
     </div>
@@ -487,7 +487,7 @@ function setSource(src){
   if(src==='live'){ b.textContent='● Datos reales en vivo'; b.className='src-pill src-live'; document.body.classList.add('mode-live'); }
   else if(src==='sim'){ b.textContent='Demo simulada'; b.className='src-pill src-sim'; document.body.classList.add('mode-sim'); }
   else if(src==='idle'){ b.textContent='Actualizando datos'; b.className='src-pill src-idle'; document.body.classList.add('mode-idle'); }
-  else { b.textContent='Conectando…'; b.className='src-pill src-conn'; document.body.classList.add('mode-conn'); }
+  else { b.textContent='Cargando datos...'; b.className='src-pill src-conn'; document.body.classList.add('mode-conn'); }
 }
 function renderActive(){
   if(activeView==='grupos') renderGroups();
