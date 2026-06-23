@@ -500,8 +500,16 @@ function renderLive(){
   const el = document.getElementById('liveMatches');
   const live = current.live || [];
   if(tag){
-    if(live.length){ tag.innerHTML = '<span class="live-dot"></span> En vivo'; tag.classList.remove('off'); }
-    else { tag.textContent = 'Sin partidos en vivo'; tag.classList.add('off'); }
+    if(live.length){
+      tag.innerHTML = '<span class="live-dot"></span> En vivo';
+      tag.classList.remove('off');
+    } else if(current.source === 'conn'){
+      tag.textContent = 'Actualizando';
+      tag.classList.add('off');
+    } else {
+      tag.textContent = 'Sin partidos en vivo';
+      tag.classList.add('off');
+    }
   }
   if(!live.length){
 	const msg = 'No hay partidos en vivo en este momento. Los resultados, grupos y llaves se actualizan automáticamente cuando hay datos disponibles.';
