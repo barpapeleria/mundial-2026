@@ -457,9 +457,19 @@ function liveMinute(m) {
   // Segundo tiempo: si sabemos cuándo arrancó, calculamos desde ahí.
   if (hasHalfTimeScore && state.secondHalfStartedAt) {
     const elapsedSecondHalf = Math.floor((Date.now() - state.secondHalfStartedAt) / 60000);
-    const min = Math.min(90, 45 + Math.max(1, elapsedSecondHalf));
+    const rawMin = 45 + Math.max(1, elapsedSecondHalf);
 
-    return { min, label: '~' + min + "'" };
+    if (rawMin <= 90) {
+      return { min: rawMin, label: '~' + rawMin + "'" };
+    }
+
+    // Adicional del segundo tiempo: si sigue en juego, mostramos 90+1, 90+2, etc.
+    if (status === 'IN_PLAY' || status === 'LIVE') {
+      const added = Math.min(15, rawMin - 90);
+      return { min: 90 + added, label: `90+${added}'` };
+    }
+
+    return { min: 90, label: "90+'" };
   }
 
   // Si ya está en segundo tiempo pero el server arrancó tarde y no vio el cambio PAUSED -> IN_PLAY,
@@ -478,6 +488,13 @@ function liveMinute(m) {
   if (elapsed <= 45) {
     const min = Math.max(1, elapsed);
     return { min, label: '~' + min + "'" };
+  }
+
+  // Adicional del primer tiempo: si la API todavía lo marca en juego,
+  // mostramos 45+ en vez de cortar directo a Entretiempo.
+  if (status === 'IN_PLAY' || status === 'LIVE') {
+    const added = Math.min(10, elapsed - 45);
+    return { min: 45 + added, label: `45+${added}'` };
   }
 
   return { min: 45, label: 'Entretiempo' };
