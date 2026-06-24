@@ -57,6 +57,7 @@ let clients = [];
 let lastSnapshot = null;
 let lastScores = {};      // matchId -> "home-away"
 let matchClockState = {}; // matchId -> { lastStatus, secondHalfStartedAt }
+let matchScoreOverrides = {}; // matchId -> { home, away }
 
 /* ---------- SSE ---------- */
 function send(res, event, data) {
@@ -380,8 +381,16 @@ function buildSnapshot(matchesData, standingsData, scorersData) {
 }
 
 function scoreOf(m, side) {
+  const key = String(m.id);
+  const override = matchScoreOverrides[key];
+
+  if (override && override[side] != null) {
+    return override[side];
+  }
+
   const ft = m.score && m.score.fullTime;
   if (ft && ft[side] != null) return ft[side];
+
   return 0;
 }
 function penaltiesOf(m) {
@@ -597,6 +606,9 @@ app.get('/admin/clock', async (req, res) => {
 
   const minute = Number(req.query.minute);
   let matchId = String(req.query.matchId || '').trim();
+  
+  const homeScore = req.query.home;
+  const awayScore = req.query.away;
 
   if (!Number.isFinite(minute) || minute < 46 || minute > 120) {
     return res.status(400).json({
@@ -634,6 +646,24 @@ app.get('/admin/clock', async (req, res) => {
     updatedAt: Date.now()
   };
 
+  if (homeScore != null || awayScore != null) {
+    const home = Number(homeScore);
+    const away = Number(awayScore);
+
+    if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Parametros home/away invalidos. Usar numeros enteros >= 0.'
+      });
+    }
+
+    matchScoreOverrides[matchId] = {
+      home,
+      away,
+      manual: true,
+      updatedAt: Date.now()
+    };
+  }  
   // Refresca el snapshot inmediatamente usando el cache actual, sin esperar al próximo poll.
   if (cache.matches || cache.standings || cache.scorers) {
     const snap = buildSnapshot(cache.matches, cache.standings, cache.scorers);
@@ -647,7 +677,7 @@ app.get('/admin/clock', async (req, res) => {
     matchId,
     minute,
     label: minute > 90 ? `90+${minute - 90}'` : `~${minute}'`,
-    message: 'Reloj ajustado manualmente'
+    message: 'Reloj/marcador ajustado manualmente'
   });
 });
 
