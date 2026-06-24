@@ -13,7 +13,7 @@ Este proyecto funciona como una app complementaria al catálogo principal de Bar
 La idea es usar el interés del Mundial como gancho para atraer visitas y, al mismo tiempo, promocionar productos personalizados como:
 
 - Stickers de Argentina.
-- Stickers de Messi.
+- Stickers temática fútbol, Mundial, Argentina, “el 10” y colores celeste/blanco.
 - Toppers mundialistas.
 - Deco para cumpleaños.
 - Papelería personalizada para eventos y emprendimientos.
@@ -32,6 +32,7 @@ La idea es usar el interés del Mundial como gancho para atraer visitas y, al mi
 - Botón para volver arriba al hacer scroll.
 - Tracking seguro con `gtag` si Google Analytics está disponible.
 - Diseño responsive, mobile-first y estilo glassmorphism.
+- Endpoint administrativo protegido para ajustar reloj y marcador cuando el proveedor externo viene desfasado.
 
 ---
 
@@ -105,6 +106,7 @@ FOOTBALL_DATA_TOKEN=tu_token_real
 COMPETITION=WC
 PORT=3000
 POLL_MS=20000
+CLOCK_ADMIN_SECRET=una_clave_larga_y_privada
 ```
 
 ### 4. Levantar el proyecto
@@ -129,8 +131,11 @@ http://localhost:3000
 | `COMPETITION` | Código de competencia | `WC` |
 | `PORT` | Puerto local del servidor | `3000` |
 | `POLL_MS` | Frecuencia de consulta a la API en milisegundos | `20000` |
+| `CLOCK_ADMIN_SECRET` | Clave privada para usar endpoints administrativos del backend | Valor secreto largo |
 
 > Importante: `POLL_MS` no debería bajarse demasiado para evitar problemas con límites de la API.
+>
+> `CLOCK_ADMIN_SECRET` no debe exponerse públicamente ni subirse al repositorio. Se usa para proteger acciones manuales como ajustar el reloj o marcador de un partido cuando la API externa viene desfasada.
 
 ---
 
@@ -144,6 +149,8 @@ El token real de football-data.org debe quedar únicamente en:
 - Las variables de entorno del proveedor de hosting.
 
 Este proyecto usa `server.js` como proxy para que el token no quede expuesto en el navegador.
+
+El endpoint administrativo `/admin/clock` está protegido mediante `CLOCK_ADMIN_SECRET`. Esa clave debe mantenerse privada y no debe compartirse públicamente.
 
 El repositorio debe subir solamente:
 
@@ -177,6 +184,16 @@ GET /events
 
 Canal de eventos en tiempo real para enviar snapshots y novedades al navegador.
 
+Ejemplo de eventos enviados:
+
+```txt
+event: hello
+data: {"hasToken":true,"competition":"WC","pollMs":15000}
+
+event: snapshot
+data: {...}
+```
+
 ### Health check
 
 ```txt
@@ -195,6 +212,54 @@ Ejemplo de respuesta:
   "lastSnapshot": true
 }
 ```
+
+### Ajuste manual de reloj y marcador
+
+```txt
+GET /admin/clock
+```
+
+Endpoint administrativo protegido por `CLOCK_ADMIN_SECRET`.
+
+Permite ajustar manualmente el minuto de un partido en vivo y, opcionalmente, corregir el marcador cuando el proveedor externo viene desfasado.
+
+#### Parámetros
+
+| Parámetro | Obligatorio | Descripción |
+|---|---:|---|
+| `secret` | Sí | Debe coincidir con la variable de entorno `CLOCK_ADMIN_SECRET` |
+| `minute` | Sí | Minuto real del partido. Debe estar entre `46` y `120` |
+| `matchId` | No/Sí | ID del partido. Si hay un solo partido en vivo, puede omitirse. Si hay más de uno, es obligatorio |
+| `home` | No | Goles del equipo local para override manual |
+| `away` | No | Goles del equipo visitante para override manual |
+
+#### Ejemplo: ajustar solo el minuto
+
+```txt
+/admin/clock?matchId=537412&minute=56&secret=TU_SECRET
+```
+
+#### Ejemplo: ajustar minuto y marcador
+
+```txt
+/admin/clock?matchId=537412&minute=56&home=0&away=1&secret=TU_SECRET
+```
+
+#### Respuesta esperada
+
+```json
+{
+  "ok": true,
+  "matchId": "537412",
+  "minute": 56,
+  "label": "~56'",
+  "message": "Reloj/marcador ajustado manualmente"
+}
+```
+
+> Este endpoint no reemplaza a la API oficial. Solo aplica correcciones manuales temporales en memoria cuando el feed externo viene atrasado.
+>
+> Si el servidor se reinicia o Render redeploya la app, los ajustes manuales se pierden porque se guardan en memoria.
 
 ---
 
@@ -228,6 +293,7 @@ FOOTBALL_DATA_TOKEN
 COMPETITION
 PORT
 POLL_MS
+CLOCK_ADMIN_SECRET
 ```
 
 No subir `.env` al repositorio.
@@ -285,6 +351,9 @@ Inicia el servidor en modo desarrollo. Actualmente ejecuta el mismo comando que 
 - No es una app de apuestas.
 - El contenido comercial está pensado como complemento sutil de Bar Papelería.
 - El token de la API debe mantenerse privado.
+- Los ajustes manuales de `/admin/clock` son temporales y viven en memoria.
+- Si el servidor se reinicia, los overrides manuales de reloj y marcador se pierden.
+- El endpoint administrativo debe usarse solo para corregir desfases puntuales del proveedor externo.
 
 ---
 
